@@ -1,0 +1,92 @@
+import xmq.hook.gradle.core.HookerImpl
+import xmq.hooks.IMethodInvoker
+
+plugins {
+    id 'com.android.application'
+    id 'kotlin-android'
+    id 'xqhook'
+}
+
+android {
+    compileSdkVersion 28
+    buildToolsVersion "28.0.3"
+
+    defaultConfig {
+        applicationId "xmq.hook"
+        minSdkVersion 19
+        targetSdkVersion 28
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+}
+def methodInvoker = new HookerImpl.IMethodCall() {
+    @Override
+    void execute(IMethodInvoker it) {
+//        println("hook:::: "+Arrays.toString(it.params()))
+        // 这里识别无tag情况。（只有一个message || 第二个参数就不是String)
+        if (it.params().length == 1 || it.params()[1] != String.name) {
+            // 增加第一个参数tag为获取类名称
+            it.replaceWithReturn("xmq.track.base.MockLog.${it.methodName()}(getClass().getSimpleName(), \$\$);")
+            // message添加代码执行行信息
+            it.replaceParameter(1, "\"(${it.invokeFileName()}:${it.invokeLineNo()}) \" + ${it.paramInStatement(1)};")
+        } else {
+            // 第一个参数为tag, 这里添加获取类名称
+            it.replaceParameter(1, "getClass().getSimpleName() + \"-\" + ${it.paramInStatement(1)};")
+            // message添加代码执行行信息
+            it.replaceParameter(2, "\"(${it.invokeFileName()}:${it.invokeLineNo()}) \" + ${it.paramInStatement(2)};")
+        }
+    }
+}
+hookConfig {
+    addHooker("*.MainActivity.test\\(*\\)*") {
+        it.replaceParameter(1, "\"replace Parameter from \" + ${it.paramInStatement(1)} ;")
+    }
+    addHooker("*.MainActivity.test3\\(*\\)*") {
+        it.replaceWithReturn("System.out.println(\"Test3 body\");")
+    }
+    addGlobalHooker("android.util.Log.*\\(*\\)") {
+        it.replace("xmq.track.base.MockLog.d(\$\$);")
+        it.replaceParameter(1, "getClass().getSimpleName()+ \"-\" + ${it.paramInStatement(1)};")
+        it.replaceParameter(2, "\"(${it.invokeFileName()}:${it.invokeLineNo()}) \" + ${it.paramInStatement(2)};")
+    }
+    addGlobalHooker("xmq.track.base.MockLog.*\\(*\\)V") {
+//        println("hook:::: "+Arrays.toString(it.params()))
+        // 这里识别无tag情况。（只有一个message || 第二个参数就不是String)
+        if (it.params().length == 1 || it.params()[1] != String.name) {
+            // 增加第一个参数tag为获取类名称
+            it.replaceWithReturn("xmq.track.base.MockLog.${it.methodName()}(getClass().getSimpleName(), \$\$);")
+            // message添加代码执行行信息
+            it.replaceParameter(1, "\"(${it.invokeFileName()}:${it.invokeLineNo()}) \" + ${it.paramInStatement(1)};")
+        } else {
+            // 第一个参数为tag, 这里添加获取类名称
+            it.replaceParameter(1, "getClass().getSimpleName() + \"-\" + ${it.paramInStatement(1)};")
+            // message添加代码执行行信息
+            it.replaceParameter(2, "\"(${it.invokeFileName()}:${it.invokeLineNo()}) \" + ${it.paramInStatement(2)};")
+        }
+    }
+}
+
+dependencies {
+    implementation project(":basemodule")
+
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    implementation 'androidx.core:core-ktx:1.5.0'
+    implementation 'androidx.appcompat:appcompat:1.3.0'
+    implementation 'com.google.android.material:material:1.3.0'
+}
